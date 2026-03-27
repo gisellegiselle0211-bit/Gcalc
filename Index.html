@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#2196f3">
+    <title>GCalc Modern POS</title>
+    
+    <link rel="manifest" href="manifest.json">
+
+    <style>
+        :root { 
+            --primary: #2196f3; --dark: #37474f; --flying-yellow: #FFCA28; 
+            --flying-red: #e53935; --bg: #f4f7f6;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 15px; margin: 0; color: var(--dark); }
+        .card { background: white; padding: 1.5rem; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); width: 100%; max-width: 400px; position: relative; }
+        .menu-dots { position: absolute; top: 20px; right: 20px; cursor: pointer; padding: 5px; color: #ccc; font-size: 1.5rem; line-height: 1; z-index: 10; }
+        .logo-area { text-align: center; margin-bottom: 20px; }
+        .logo-area h2 { margin: 0; font-weight: 800; font-size: 1.6rem; letter-spacing: -0.5px; }
+        .logo-area span { color: var(--flying-red); }
+        .grid { display: flex; gap: 10px; margin-bottom: 15px; }
+        .btn-p { flex: 1; border: none; padding: 14px 5px; border-radius: 14px; cursor: pointer; font-weight: 700; transition: 0.2s; box-shadow: 0 4px 0 rgba(0,0,0,0.05); }
+        #fuel-diesel { background: var(--flying-yellow); color: #444; }
+        #fuel-premium { background: var(--flying-red); color: white; }
+        .active-fuel { transform: translateY(2px); box-shadow: none; outline: 3px solid var(--primary); }
+        .quick-cash { display: flex; gap: 8px; margin-bottom: 12px; }
+        .btn-q { flex: 1; padding: 10px; border: 1px solid #eee; border-radius: 10px; background: white; font-weight: 600; cursor: pointer; font-size: 0.85rem; color: #666; transition: 0.2s; }
+        .order-preview { margin: 10px 0; border-radius: 12px; background: #f9f9f9; padding: 0; max-height: 120px; overflow-y: auto; display: none; border: 1px solid #eee; }
+        .order-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid #eee; font-size: 0.85rem; }
+        .btn-del { color: var(--flying-red); border: none; background: none; font-weight: bold; cursor: pointer; padding: 5px; font-size: 1.1rem; }
+        .lube-section-label { font-size: 0.7rem; font-weight: 700; color: #aaa; margin: 25px 0 8px 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .lube-scroll { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 10px; scrollbar-width: none; }
+        .lube-card { flex: 0 0 100px; background: #fafafa; padding: 12px 8px; border-radius: 14px; text-align: center; border: 1px solid #f0f0f0; cursor: pointer; transition: 0.2s; }
+        .lube-card b { display: block; font-size: 0.75rem; color: #333; margin-bottom: 4px; }
+        .lube-card span { font-size: 0.7rem; color: var(--primary); font-weight: bold; }
+        input { width: 100%; padding: 16px; border: 2px solid #f0f0f0; border-radius: 14px; font-size: 1.2rem; font-weight: 700; box-sizing: border-box; text-align: center; outline: none; transition: 0.2s; color: var(--dark); }
+        .btn-calc { width: 100%; padding: 18px; background: var(--primary); color: white; border: none; border-radius: 16px; font-weight: 700; font-size: 1.1rem; cursor: pointer; margin-top: 15px; box-shadow: 0 6px 20px rgba(33, 150, 243, 0.2); }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.85); justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(8px); }
+        .modal { width: 85%; max-width: 320px; background: white; padding: 30px; border-radius: 30px; box-shadow: 0 20px 60px rgba(0,0,0,0.1); border: 1px solid #eee; text-align: center; }
+        .res-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; opacity: 0; transform: translateY(10px); }
+        .res-label { color: #888; font-size: 0.85rem; font-weight: 500; }
+        .res-val { color: var(--dark); font-weight: 700; font-size: 1.1rem; }
+        .res-total-row { border-top: 2px solid #f9f9f9; margin-top: 20px; padding-top: 20px; }
+        .res-total-val { font-size: 1.8rem; color: var(--primary); display: block; margin-top: 5px; }
+        .admin-row { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
+        .admin-row input { padding: 8px; font-size: 0.9rem; border: 1px solid #ddd; text-align: left; }
+        
+        .fade-in { animation: fadeUp 0.8s ease forwards; }
+        @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="menu-dots" onclick="openAdmin()">&#8942;</div>
+    <div class="logo-area"><h2>G<span>CALC</span></h2></div>
+    <div class="grid">
+        <button class="btn-p" id="fuel-diesel" onclick="setFuel('Diesel')">Diesel<br><small id="p-Diesel">0.00</small></button>
+        <button class="btn-p" id="fuel-premium" onclick="setFuel('Premium')">Premium<br><small id="p-Premium">0.00</small></button>
+    </div>
+    <div class="quick-cash">
+        <button class="btn-q" onclick="addCash(100)">+100</button>
+        <button class="btn-q" onclick="addCash(500)">+500</button>
+        <button class="btn-q" onclick="addCash(1000)">+1000</button>
+    </div>
+    <input type="number" id="cash-input" placeholder="Enter Cash Amount" inputmode="decimal" onkeyup="if(event.key==='Enter') { this.blur(); process(); }">
+    <div class="order-preview" id="order-preview"></div>
+    <div class="lube-section-label">Lubes & Others</div>
+    <div class="lube-scroll" id="lube-list"></div>
+    <button class="btn-calc" onclick="process()">Calculate Result</button>
+    <button onclick="voidAll()" style="width:100%; border:none; background:none; color:#ccc; margin-top:12px; cursor:pointer; font-size:0.8rem; font-weight: 600;">Clear All</button>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+        <h3 style="margin: 0 0 20px 0; font-size: 1.2rem;">Transaction Summary</h3>
+        <div class="res-item"><span class="res-label">Fuel (Liters)</span><span class="res-val" id="res-qty">0.000</span></div>
+        <div class="res-item"><span class="res-label">Lubes/Others</span><span class="res-val" id="res-lubes">0.00</span></div>
+        <div class="res-item"><span class="res-label">Net Sales</span><span class="res-val" id="res-vatable">0.00</span></div>
+        <div class="res-item"><span class="res-label">VAT (12%)</span><span class="res-val" id="res-vat">0.00</span></div>
+        <div class="res-item" style="border-top: 1px solid #f0f0f0; padding-top: 10px; margin-top: 5px;">
+            <span class="res-label">Cash Received</span>
+            <input type="number" id="cash-received" placeholder="0.00" style="width: 80px; padding: 5px; font-size: 1rem; border: 1px solid #eee; border-radius: 8px;" oninput="calcChange()">
+        </div>
+        <div class="res-item">
+            <span class="res-label">Change</span>
+            <span class="res-val" id="res-change" style="color: var(--flying-red);">0.00</span>
+        </div>
+        <div class="res-item res-total-row" style="flex-direction: column;"><span class="res-label">Total Amount Paid</span><span class="res-val res-total-val" id="res-total">0.00</span></div>
+        <button class="btn-calc" style="margin-top: 25px;" onclick="closeModal()">Done</button>
+    </div>
+</div>
+
+<div class="modal-overlay" id="adminOverlay">
+    <div class="modal" style="max-width: 350px; text-align: left;">
+        <h3 style="margin-top: 0;">Settings</h3>
+        <div id="admin-fields" style="max-height: 300px; overflow-y: auto;"></div>
+        <div style="display:flex; gap:10px; margin-top:15px;">
+            <button class="btn-calc" style="background:#eee; color:#666; margin:0;" onclick="closeAdmin()">Cancel</button>
+            <button class="btn-calc" style="margin:0;" onclick="saveAdmin()">Save</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let fuelPrices = JSON.parse(localStorage.getItem('fv_f')) || { Diesel: 0, Premium: 0 };
+    let inventory = JSON.parse(localStorage.getItem('fv_l')) || [
+        { name: "Motor Oil", price: 280 }, { name: "Gear Oil", price: 150 }, { name: "Coolant", price: 65 }, { name: "Brake Fluid", price: 120 }
+    ];
+    let cart = [], selectedType = null;
+
+    function init() {
+        document.getElementById('p-Diesel').innerText = fuelPrices.Diesel.toFixed(2);
+        document.getElementById('p-Premium').innerText = fuelPrices.Premium.toFixed(2);
+        const container = document.getElementById('lube-list');
+        container.innerHTML = '';
+        inventory.forEach((item, idx) => {
+            const d = document.createElement('div');
+            d.className = 'lube-card';
+            d.innerHTML = `<b>${item.name}</b><span>₱${item.price}</span>`;
+            d.onclick = () => { cart.push({...item, id: Date.now() + Math.random()}); updatePreview(); };
+            container.appendChild(d);
+        });
+        updatePreview();
+    }
+
+    function updatePreview() {
+        const pre = document.getElementById('order-preview');
+        if (cart.length === 0) { pre.style.display = 'none'; return; }
+        pre.style.display = 'block';
+        pre.innerHTML = cart.map(item => `
+            <div class="order-item">
+                <span>${item.name} (₱${item.price})</span>
+                <button class="btn-del" onclick="removeFromCart(${item.id})">✕</button>
+            </div>
+        `).join('');
+    }
+
+    function removeFromCart(id) { cart = cart.filter(item => item.id !== id); updatePreview(); }
+
+    function setFuel(t) {
+        selectedType = t;
+        document.querySelectorAll('.btn-p').forEach(b => b.classList.remove('active-fuel'));
+        document.getElementById(`fuel-${t.toLowerCase()}`).classList.add('active-fuel');
+        document.getElementById('cash-input').focus();
+    }
+
+    function calcChange() {
+        const total = parseFloat(document.getElementById('res-total').innerText.replace('₱','').replace(/,/g,'')) || 0;
+        const rec = parseFloat(document.getElementById('cash-received').value) || 0;
+        document.getElementById('res-change').innerText = rec > total ? (rec - total).toLocaleString(undefined, {minimumFractionDigits:2}) : "0.00";
+    }
+
+    function process() {
+        const fAmt = parseFloat(document.getElementById('cash-input').value) || 0;
+        const lubeTotal = cart.reduce((s, i) => s + i.price, 0);
+        const total = Math.round((fAmt + lubeTotal) * 100) / 100;
+        if (total <= 0) return;
+        const qty = (selectedType && fuelPrices[selectedType] > 0) ? fAmt / fuelPrices[selectedType] : 0;
+        const vatable = Math.round((total / 1.12) * 100) / 100;
+        const vat = Math.round((total - vatable) * 100) / 100;
+        document.getElementById('res-qty').innerText = qty.toFixed(3);
+        document.getElementById('res-lubes').innerText = lubeTotal.toLocaleString(undefined, {minimumFractionDigits:2});
+        document.getElementById('res-vatable').innerText = vatable.toLocaleString(undefined, {minimumFractionDigits:2});
+        document.getElementById('res-vat').innerText = vat.toLocaleString(undefined, {minimumFractionDigits:2});
+        document.getElementById('res-total').innerText = "₱" + total.toLocaleString(undefined, {minimumFractionDigits:2});
+        document.getElementById('cash-received').value = '';
+        document.getElementById('res-change').innerText = "0.00";
+        document.getElementById('modalOverlay').style.display = 'flex';
+        document.querySelectorAll('.res-item').forEach(item => item.classList.add('fade-in'));
+    }
+
+    function openAdmin() {
+        const pin = prompt("Enter Admin PIN:");
+        if (pin !== "1234") return;
+        const fields = document.getElementById('admin-fields');
+        fields.innerHTML = `<b>Fuel Prices</b>`;
+        for (let key in fuelPrices) {
+            fields.innerHTML += `<div class="admin-row"><label style="flex:1">${key}</label><input type="number" class="set-fuel" data-key="${key}" value="${fuelPrices[key]}"></div>`;
+        }
+        fields.innerHTML += `<br><b>Products</b>`;
+        inventory.forEach((item, i) => {
+            fields.innerHTML += `<div class="admin-row"><input type="text" class="set-name" data-idx="${i}" value="${item.name}" style="flex:2"><input type="number" class="set-price" data-idx="${i}" value="${item.price}" style="flex:1"></div>`;
+        });
+        document.getElementById('adminOverlay').style.display = 'flex';
+    }
+
+    function saveAdmin() {
+        document.querySelectorAll('.set-fuel').forEach(i => fuelPrices[i.dataset.key] = parseFloat(i.value) || 0);
+        const names = document.querySelectorAll('.set-name'), prices = document.querySelectorAll('.set-price');
+        inventory = Array.from(names).map((n, i) => ({ name: n.value, price: parseFloat(prices[i].value) || 0 }));
+        localStorage.setItem('fv_f', JSON.stringify(fuelPrices));
+        localStorage.setItem('fv_l', JSON.stringify(inventory));
+        closeAdmin(); init();
+    }
+
+    function closeAdmin() { document.getElementById('adminOverlay').style.display = 'none'; }
+    function addCash(v) { document.getElementById('cash-input').value = (parseFloat(document.getElementById('cash-input').value) || 0) + v; }
+    function voidAll() { cart = []; selectedType = null; document.getElementById('cash-input').value = ''; updatePreview(); document.querySelectorAll('.btn-p').forEach(b => b.classList.remove('active-fuel')); }
+    function closeModal() { document.getElementById('modalOverlay').style.display = 'none'; voidAll(); }
+
+    init();
+
+    // PWA: Register Service Worker
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then(reg => console.log('GCalc PWA: Registered'))
+                .catch(err => console.log('GCalc PWA: Error', err));
+        });
+    }
+</script>
+</body>
+</html>
