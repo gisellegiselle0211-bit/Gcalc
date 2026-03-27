@@ -1,0 +1,15 @@
+{
+  "short_name": "GCalc",
+  "name": "GCalc Modern POS",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/888/888368.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f4f7f6",
+  "theme_color": "#2196f3"
+}
